@@ -8,9 +8,14 @@ const clients = new Set();
 const users = new Map();
 
 function broadcastUserList() {
-  const userList = Array.from(users.values).map((user) => ({
+  console.log("called...");
+
+  const userList = Array.from(users.values()).map((user) => ({
     userId: user.userId,
     username: user.username,
+    email: user.email,
+    bio: user.bio,
+    profileUrl: user.profileUrl,
     online: true,
   }));
 
@@ -22,8 +27,10 @@ function broadcastUserList() {
 
 function broadcast(message, excludeUser = null) {
   const messageStr = JSON.stringify(message);
+  console.log(users, "krekkdf...");
   users.forEach((user) => {
     if (user.ws.readyState === WebSocket.OPEN && user !== excludeUser) {
+      console.log("krekkdf4544554...");
       user.ws.send(messageStr);
     }
   });
@@ -35,19 +42,23 @@ server.on("connection", (ws) => {
 
   // Handle incoming messages
   ws.on("message", (data) => {
-    const { text } = JSON.parse(data);
+    const parsedData = JSON.parse(data);
+    console.log(parsedData);
 
-    switch (text.type) {
+    switch (parsedData?.type) {
       case "login":
-        users.set(text.userId, {
+        users.set(parsedData.userId, {
           ws,
-          userId: text.userId,
-          username: text.username.slice(0, 50), // Limit username length
+          userId: parsedData.userId,
+          username: parsedData.username.slice(0, 50), // Limit username length
+          email: parsedData.email,
+          bio: parsedData.bio,
+          profileUrl: parsedData.profileUrl,
         });
         ws.send(
           JSON.stringify({
             type: "login_success",
-            text: `Welcome ${text.username}!`,
+            text: `Welcome ${parsedData?.username}!`,
           })
         );
         // broadcast(
@@ -60,6 +71,32 @@ server.on("connection", (ws) => {
         // );
         broadcastUserList();
 
+        break;
+
+      case "authenticate":
+        if (parsedData.token) {
+          users.set(parsedData.userId, {
+            ws,
+            userId: parsedData.userId,
+            username: parsedData?.username?.slice(0, 50), // Limit username length
+            email: parsedData.email,
+            bio: parsedData.bio,
+            profileUrl: parsedData.profileUrl,
+          });
+          ws.send(
+            JSON.stringify({
+              type: "login_success",
+              text: `Welcome ${parsedData.username}!`,
+            })
+          );
+          broadcastUserList();
+        } else {
+          ws.send(
+            JSON.stringify({
+              type: "login_failed",
+            })
+          );
+        }
         break;
 
       default:
